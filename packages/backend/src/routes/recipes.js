@@ -1,7 +1,7 @@
 import * as express from "express";
 const router = express.Router();
 import * as cors from "cors";
-import xmljs from "xml-js";
+import * as xmljs from "xml-js";
 import * as moment from "moment";
 
 // DB
@@ -718,6 +718,8 @@ router.put(
           }
         );
       }
+
+      await SearchService.indexRecipes([updatedRecipe]);
 
       return updatedRecipe;
     });

@@ -1,7 +1,7 @@
-import { Prisma, User, ProfileItem } from "@prisma/client";
+import { Prisma, ProfileItem } from "@prisma/client";
 import { prisma } from "@recipesage/prisma";
-import { getFriendships } from "./getFriendships";
-import { RecipeInflated, recipesInflated } from "../types/queryTypes";
+import { getFriendshipIds } from "./getFriendshipIds";
+import { RecipeSummary, recipeSummary } from "../types/queryTypes";
 
 export const getRecipesWithConstraints = async (args: {
   tx?: Prisma.TransactionClient;
@@ -15,7 +15,7 @@ export const getRecipesWithConstraints = async (args: {
   labels?: string[];
   labelIntersection?: boolean;
   ratings?: (number | null)[];
-}): Promise<{ recipes: RecipeInflated[]; totalCount: number }> => {
+}): Promise<{ recipes: RecipeSummary[]; totalCount: number }> => {
   const {
     tx = prisma,
     userId: contextUserId,
@@ -31,20 +31,17 @@ export const getRecipesWithConstraints = async (args: {
     recipeIds,
   } = args;
 
-  let friends: { [key: string]: User } = {};
+  let friends: Set<string> = new Set();
   if (contextUserId) {
-    const friendships = await getFriendships(contextUserId);
-    friends = friendships.friends.reduce(
-      (acc, friend) => ((acc[friend.id] = friend), acc),
-      {} as typeof friends
-    );
+    const friendships = await getFriendshipIds(contextUserId);
+    friends = new Set(friendships.friends);
   }
 
   const friendUserIds = userIds.filter(
-    (userId) => friends[userId] && userId !== contextUserId
+    (userId) => friends.has(userId) && userId !== contextUserId
   );
   const nonFriendUserIds = userIds.filter(
-    (userId) => !friends[userId] && userId !== contextUserId
+    (userId) => !friends.has(userId) && userId !== contextUserId
   );
 
   const profileItems = await tx.profileItem.findMany({
@@ -122,51 +119,75 @@ export const getRecipesWithConstraints = async (args: {
     };
 
   const where = {
+    AND: [] as Prisma.RecipeWhereInput[],
+  } satisfies Prisma.RecipeWhereInput;
+
+  where.AND.push({
     OR: queryFilters,
-    ...(recipeIds ? { id: { in: recipeIds } } : {}),
-    ...(ratings ? { rating: { in: ratings } } : {}),
-    ...(filterByRecipeIds ? { id: { in: filterByRecipeIds } } : {}),
+  });
+  where.AND.push({
     folder,
-  } as Prisma.RecipeWhereInput;
+  });
+
+  if (recipeIds) {
+    where.AND.push({ id: { in: recipeIds } });
+  }
+
+  if (ratings) {
+    where.AND.push({
+      OR: ratings.map((rating) => ({
+        rating,
+      })),
+    });
+  }
+
+  if (filterByRecipeIds) {
+    where.AND.push({ id: { in: filterByRecipeIds } });
+  }
 
   if (labels && labelIntersection) {
-    where.AND = labels.map(
-      (label) =>
-        ({
-          recipeLabels: {
-            some: {
-              label: {
-                title: label,
+    where.AND.push(
+      ...labels.map(
+        (label) =>
+          ({
+            recipeLabels: {
+              some: {
+                label: {
+                  title: label,
+                },
               },
             },
-          },
-        } as Prisma.RecipeWhereInput)
+          } as Prisma.RecipeWhereInput)
+      )
     );
   }
 
   if (labels && !labelIntersection) {
-    where.recipeLabels = {
-      some: {
-        label: {
-          title: {
-            in: labels,
+    where.AND.push({
+      recipeLabels: {
+        some: {
+          label: {
+            title: {
+              in: labels,
+            },
           },
         },
       },
-    };
+    });
   }
 
-  const totalCount = await tx.recipe.count({
-    where,
-  });
-
-  const recipes: RecipeInflated[] = await tx.recipe.findMany({
-    where,
-    ...recipesInflated,
-    orderBy,
-    skip: offset,
-    take: limit,
-  });
+  const [totalCount, recipes] = await Promise.all([
+    tx.recipe.count({
+      where,
+    }),
+    tx.recipe.findMany({
+      where,
+      ...recipeSummary,
+      orderBy,
+      skip: offset,
+      take: limit,
+    }),
+  ]);
 
   return {
     recipes,

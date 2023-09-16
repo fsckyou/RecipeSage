@@ -3,13 +3,13 @@ const router = express.Router();
 import * as cors from "cors";
 import * as multer from "multer";
 import * as fs from "fs-extra";
-import extract from "extract-zip";
+import * as extract from "extract-zip";
 import { spawn } from "child_process";
 import { performance } from "perf_hooks";
 import * as semver from "semver";
 import * as path from "path";
 import fetch from "node-fetch";
-import xmljs from "xml-js";
+import * as xmljs from "xml-js";
 
 // DB
 import {
@@ -25,6 +25,7 @@ import { validateSession, validateUser } from "../services/middleware.js";
 import * as UtilService from "../services/util.js";
 import { writeImageURL, writeImageBuffer } from "../services/storage/image.ts";
 import { ObjectTypes } from "../services/storage/shared.ts";
+import * as SearchService from "@recipesage/trpc";
 import * as SubscriptionsService from "../services/subscriptions.js";
 import * as JobTrackerService from "../services/job-tracker.js";
 
@@ -366,6 +367,8 @@ router.get(
             transaction,
           }
         );
+
+        await SearchService.indexRecipes(savedRecipes);
       });
 
       res.status(200).json({
@@ -410,18 +413,33 @@ router.post(
     };
     JobTrackerService.addJob(job);
 
-    let lcbImportJob = spawn("node", [
-      "src/lcbimport.app.js",
+    let lcbImportJob = spawn("node_modules/ts-node/dist/bin.js", [
+      "--project",
+      "packages/backend/tsconfig.json",
+      "packages/backend/src/lcbimport.app.js",
       req.file.path,
       res.locals.session.userId,
       ...optionalFlags,
     ]);
-    lcbImportJob.stderr.on("data", (data) => {
-      console.error(`lcbimport stderr: ${data}`);
+    lcbImportJob.stderr.setEncoding("utf8");
+    lcbImportJob.stderr.on("data", (err) => {
+      console.error(err);
     });
-    lcbImportJob.on("close", (code) => {
+    lcbImportJob.stdout.setEncoding("utf8");
+    lcbImportJob.stdout.on("data", (msg) => {
+      console.log(msg);
+    });
+    lcbImportJob.on("close", async (code) => {
       switch (code) {
         case 0: {
+          const recipes = await Recipe.findAll({
+            where: {
+              userId: res.locals.session.userId,
+            },
+          });
+
+          await SearchService.indexRecipes(recipes);
+
           res.status(200).json({
             msg: "Ok",
           });
@@ -477,15 +495,33 @@ router.post(
     };
     JobTrackerService.addJob(job);
 
-    let lcbImportJob = spawn("node", [
-      "src/fdxzimport.app.js",
+    let lcbImportJob = spawn("node_modules/ts-node/dist/bin.js", [
+      "--project",
+      "packages/backend/tsconfig.json",
+      "packages/backend/src/fdxzimport.app.js",
       req.file.path,
       res.locals.session.userId,
       ...optionalFlags,
     ]);
-    lcbImportJob.on("close", (code) => {
+    lcbImportJob.stderr.setEncoding("utf8");
+    lcbImportJob.stderr.on("data", (err) => {
+      console.error(err);
+    });
+    lcbImportJob.stdout.setEncoding("utf8");
+    lcbImportJob.stdout.on("data", (msg) => {
+      console.log(msg);
+    });
+    lcbImportJob.on("close", async (code) => {
       switch (code) {
         case 0: {
+          const recipes = await Recipe.findAll({
+            where: {
+              userId: res.locals.session.userId,
+            },
+          });
+
+          await SearchService.indexRecipes(recipes);
+
           res.status(200).json({
             msg: "Ok",
           });
@@ -508,6 +544,14 @@ router.post(
       }
       job.complete = true;
     });
+
+    const recipes = await Recipe.findAll({
+      where: {
+        userId: res.locals.session.userId,
+      },
+    });
+
+    await SearchService.indexRecipes(recipes);
   }
 );
 
@@ -662,7 +706,7 @@ router.post(
           });
         });
       })
-      .then(() => {
+      .then(async () => {
         metrics.tLabelsSaved = performance.now();
 
         metrics.performance = {
@@ -675,6 +719,14 @@ router.post(
           ),
           tLabelsSave: Math.floor(metrics.tLabelsSaved - metrics.tRecipesSaved),
         };
+
+        const recipes = await Recipe.findAll({
+          where: {
+            userId: res.locals.session.userId,
+          },
+        });
+
+        await SearchService.indexRecipes(recipes);
 
         res.status(201).json({});
       })
