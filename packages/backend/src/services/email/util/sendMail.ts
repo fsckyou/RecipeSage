@@ -44,9 +44,9 @@ export const sendMail = async (
         Data: subject
       }
     },
-    Source: '"RecipeSage" <noreply@recipesage.com>',
+    Source: '"RecipeSage" <recipes@scimone.net>',
     ReplyToAddresses: [
-      'julian@recipesage.com',
+      'recipes@scimone.net',
     ],
   };
 
