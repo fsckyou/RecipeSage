@@ -9,11 +9,13 @@ import {
 import { TranslateService } from "@ngx-translate/core";
 
 import { RouteMap, UtilService } from "~/services/util.service";
+import { PreferencesService } from "~/services/preferences.service";
 import {
-  PreferencesService,
+  AppTheme,
   GlobalPreferenceKey,
+  PreferencesSync,
   SupportedLanguages,
-} from "~/services/preferences.service";
+} from "@recipesage/util";
 import {
   FeatureFlagService,
   FeatureFlagKeys,
@@ -24,8 +26,8 @@ import {
 } from "~/services/quick-tutorial.service";
 import { OfflineCacheService } from "~/services/offline-cache.service";
 import { FontSizeModalComponent } from "../../../components/font-size-modal/font-size-modal.component";
-
-const APP_THEME_LOCALSTORAGE_KEY = "theme";
+import { MessagingService } from "../../../services/messaging.service";
+import { UserService } from "../../../services/user.service";
 
 @Component({
   selector: "page-settings",
@@ -33,8 +35,6 @@ const APP_THEME_LOCALSTORAGE_KEY = "theme";
   styleUrls: ["settings.page.scss"],
 })
 export class SettingsPage {
-  appTheme = localStorage.getItem(APP_THEME_LOCALSTORAGE_KEY) || "default";
-
   preferences = this.preferencesService.preferences;
   preferenceKeys = GlobalPreferenceKey;
 
@@ -49,19 +49,22 @@ export class SettingsPage {
   languageSelectInterfaceOptions = {};
 
   fontSize = this.preferences[GlobalPreferenceKey.FontSize];
+  isLoggedIn: boolean = false;
 
   constructor(
-    public navCtrl: NavController,
-    public translate: TranslateService,
-    public toastCtrl: ToastController,
-    public alertCtrl: AlertController,
-    public modalCtrl: ModalController,
-    public loadingCtrl: LoadingController,
-    public utilService: UtilService,
-    public offlineCacheService: OfflineCacheService,
-    public preferencesService: PreferencesService,
-    public featureFlagService: FeatureFlagService,
-    public quickTutorialService: QuickTutorialService
+    private navCtrl: NavController,
+    private translate: TranslateService,
+    private toastCtrl: ToastController,
+    private alertCtrl: AlertController,
+    private modalCtrl: ModalController,
+    private loadingCtrl: LoadingController,
+    private utilService: UtilService,
+    private offlineCacheService: OfflineCacheService,
+    private preferencesService: PreferencesService,
+    private featureFlagService: FeatureFlagService,
+    private quickTutorialService: QuickTutorialService,
+    private messagingService: MessagingService,
+    private userService: UserService,
   ) {
     try {
       this.showSplitPaneOption = screen.width >= 1200;
@@ -70,14 +73,21 @@ export class SettingsPage {
     }
 
     try {
-      const locale = new Intl.DisplayNames(window.navigator.languages, {
-        type: "language",
-      });
+      this.languageOptions = [];
+      for (const supportedLanguage of Object.values(SupportedLanguages)) {
+        const locale = new Intl.DisplayNames(supportedLanguage, {
+          type: "language",
+          fallback: "code",
+        });
 
-      this.languageOptions = Object.values(SupportedLanguages).map((code) => [
-        code,
-        locale.of(code) || code,
-      ]);
+        this.languageOptions.push([
+          supportedLanguage,
+          locale.of(supportedLanguage) || supportedLanguage,
+        ]);
+      }
+      this.languageOptions = this.languageOptions.sort((a, b) =>
+        a[1].localeCompare(b[1]),
+      );
     } catch (e) {
       console.error("Intl not supported");
       this.languageOptions = Object.values(SupportedLanguages).map((code) => [
@@ -89,8 +99,29 @@ export class SettingsPage {
     (async () => {
       this.languageSelectInterfaceOptions = {
         header: await this.translate.get("pages.settings.language").toPromise(),
+        cssClass: "language-select-alert",
       };
     })();
+  }
+
+  ionViewWillEnter() {
+    this.isLoggedIn = this.utilService.isLoggedIn();
+  }
+
+  _logout() {
+    this.utilService.removeToken();
+
+    this.navCtrl.navigateRoot(RouteMap.WelcomePage.getPath());
+  }
+
+  logout() {
+    this.messagingService.disableNotifications();
+
+    this.userService.logout({
+      "*": () => {},
+    });
+
+    this._logout();
   }
 
   savePreferences() {
@@ -100,9 +131,69 @@ export class SettingsPage {
   toggleSplitPane() {
     if (this.preferences[GlobalPreferenceKey.EnableSplitPane]) {
       this.quickTutorialService.triggerQuickTutorial(
-        QuickTutorialOptions.SplitPaneView
+        QuickTutorialOptions.SplitPaneView,
       );
     }
+  }
+
+  async togglePreferencesSync(event: any) {
+    const value = event.detail.checked
+      ? PreferencesSync.Enabled
+      : PreferencesSync.Disabled;
+
+    if (value === PreferencesSync.Disabled) {
+      this.preferences[GlobalPreferenceKey.PreferencesSync] = value;
+      this.preferencesService.save();
+      return;
+    }
+
+    const header = await this.translate
+      .get("pages.settings.preferencesSync.header")
+      .toPromise();
+    const message = await this.translate
+      .get("pages.settings.preferencesSync.message")
+      .toPromise();
+    const cancel = await this.translate.get("generic.cancel").toPromise();
+    const local = await this.translate
+      .get("pages.settings.preferencesSync.local")
+      .toPromise();
+    const remote = await this.translate
+      .get("pages.settings.preferencesSync.remote")
+      .toPromise();
+
+    const alert = await this.alertCtrl.create({
+      header,
+      message,
+      buttons: [
+        {
+          text: cancel,
+          handler: () => {
+            window.location.reload();
+          },
+        },
+        {
+          text: local,
+          handler: () => {
+            this.preferences[GlobalPreferenceKey.PreferencesSync] = value;
+            this.preferencesService.save();
+          },
+        },
+        {
+          text: remote,
+          handler: () => {
+            this.preferences[GlobalPreferenceKey.PreferencesSync] = value;
+            // Must persist preferences local-only first so that the sync setting is preserved
+            this.preferencesService.save(true);
+            // Load cloud settings into our local, (they are not saved to localstorage yet)
+            this.preferencesService.load();
+            // Persist cloud-downloaded settings to localstorage
+            this.preferencesService.save(true);
+          },
+        },
+      ],
+    });
+
+    alert.present();
   }
 
   async toggleOfflineCache() {
@@ -112,7 +203,7 @@ export class SettingsPage {
         .toPromise();
 
       await this.quickTutorialService.triggerQuickTutorial(
-        QuickTutorialOptions.ExperimentalOfflineCache
+        QuickTutorialOptions.ExperimentalOfflineCache,
       );
       const loading = await this.loadingCtrl.create({
         message,
@@ -151,7 +242,6 @@ export class SettingsPage {
         {
           text: del,
           handler: () => {
-            localStorage.removeItem(APP_THEME_LOCALSTORAGE_KEY);
             this.preferencesService.resetToDefaults();
           },
         },
@@ -166,7 +256,9 @@ export class SettingsPage {
     this.preferences[GlobalPreferenceKey.Language] = newLang;
     this.preferencesService.save();
 
-    this.translate.use(newLang || this.utilService.getAppBrowserLang());
+    const language = newLang || this.utilService.getAppBrowserLang();
+    this.translate.use(language);
+    this.utilService.setHtmlBrowserLang(language);
   }
 
   fontSizeChanged() {
@@ -194,17 +286,14 @@ export class SettingsPage {
     this.fontSizeChanged();
   }
 
-  private applyAppTheme() {
-    // Change in localStorage
-    localStorage.setItem(APP_THEME_LOCALSTORAGE_KEY, this.appTheme);
+  themeChanged() {
+    this.preferencesService.save();
 
-    // Change in current session
-    const bodyClasses = document.body.className.replace(/theme-\S*/, "");
-    document.body.className = `${bodyClasses} theme-${this.appTheme}`;
+    this.utilService.setAppTheme(this.preferences[GlobalPreferenceKey.Theme]);
   }
 
   async appThemeChanged() {
-    if (this.appTheme === "black") {
+    if (this.preferences[GlobalPreferenceKey.Theme] === "black") {
       const header = await this.translate
         .get("pages.settings.oled.header")
         .toPromise();
@@ -221,13 +310,14 @@ export class SettingsPage {
           {
             text: cancel,
             handler: () => {
-              this.appTheme = "default";
+              this.preferences[GlobalPreferenceKey.Theme] = AppTheme.Default;
+              this.themeChanged();
             },
           },
           {
             text: okay,
             handler: () => {
-              this.applyAppTheme();
+              this.themeChanged();
             },
           },
         ],
@@ -235,7 +325,7 @@ export class SettingsPage {
 
       alert.present();
     } else {
-      this.applyAppTheme();
+      this.themeChanged();
     }
   }
 

@@ -24,11 +24,11 @@
 
   <div [ngSwitch]="inputType">
     <div *ngSwitchCase="'items'">
+      <br />
       <ion-item *ngFor="let item of itemFields">
-        <ion-label position="floating">
-          {{ 'pages.newShoppingListItem.itemTitle' | translate }}
-        </ion-label>
         <ion-input
+          label="{{ 'pages.newShoppingListItem.itemTitle' | translate }}"
+          labelPlacement="stacked"
           [(ngModel)]="item.title"
           (ngModelChange)="addOrRemoveTextFields()"
           type="text"

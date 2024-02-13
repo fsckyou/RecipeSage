@@ -11,8 +11,8 @@
 <ion-content>
   <br />
 
-  <ion-item lines="none" class="ion-text-wrap">
-    <ion-label>
+  <ion-item lines="none">
+    <ion-label class="ion-text-wrap">
       <p>{{ 'pages.account.description' | translate }}</p>
     </ion-label>
   </ion-item>
@@ -21,14 +21,15 @@
 
   <ion-item lines="none">
     <ion-icon name="key" slot="start"></ion-icon>
-    <ion-label> {{ 'pages.account.creds.title' | translate }} </ion-label>
+    <ion-label class="ion-text-wrap"
+      >{{ 'pages.account.creds.title' | translate }}</ion-label
+    >
   </ion-item>
 
   <ion-item>
-    <ion-label position="stacked">
-      {{ 'pages.account.creds.name' | translate }}
-    </ion-label>
     <ion-input
+      label="{{ 'pages.account.creds.name' | translate }}"
+      labelPlacement="stacked"
       autocomplete="off"
       autofill="off"
       type="text"
@@ -47,10 +48,9 @@
   </ion-item>
 
   <ion-item>
-    <ion-label position="stacked">
-      {{ 'pages.account.creds.email' | translate }}
-    </ion-label>
     <ion-input
+      label="{{ 'pages.account.creds.email' | translate }}"
+      labelPlacement="stacked"
       autocomplete="off"
       autofill="off"
       type="email"
@@ -69,10 +69,9 @@
   </ion-item>
 
   <ion-item>
-    <ion-label position="stacked">
-      {{ 'pages.account.creds.password' | translate }}
-    </ion-label>
     <ion-input
+      label="{{ 'pages.account.creds.password' | translate }}"
+      labelPlacement="stacked"
       autocomplete="new-password"
       autofill="off"
       type="password"
@@ -83,10 +82,9 @@
   </ion-item>
 
   <ion-item *ngIf="passwordChanged">
-    <ion-label position="stacked">
-      {{ 'pages.account.creds.password.confirm' | translate }}
-    </ion-label>
     <ion-input
+      label="{{ 'pages.account.creds.password.confirm' | translate }}"
+      labelPlacement="stacked"
       autocomplete="new-password"
       autofill="off"
       type="password"
@@ -103,8 +101,8 @@
 
   <br />
 
-  <ion-item lines="none" class="ion-text-wrap">
-    <ion-label>
+  <ion-item lines="none">
+    <ion-label class="ion-text-wrap">
       <p>{{ 'pages.account.creds.instructions' | translate }}</p>
     </ion-label>
   </ion-item>
@@ -113,7 +111,9 @@
 
   <ion-item lines="none">
     <ion-icon name="stats-chart" slot="start"></ion-icon>
-    <ion-label> {{ 'pages.account.stats.title' | translate }} </ion-label>
+    <ion-label class="ion-text-wrap"
+      >{{ 'pages.account.stats.title' | translate }}</ion-label
+    >
   </ion-item>
 
   <ion-item lines="none" class="ion-text-wrap">
@@ -155,11 +155,13 @@
 
   <ion-item lines="none">
     <ion-icon name="heart" slot="start"></ion-icon>
-    <ion-label> {{ 'pages.account.bonus.title' | translate }} </ion-label>
+    <ion-label class="ion-text-wrap"
+      >{{ 'pages.account.bonus.title' | translate }}</ion-label
+    >
   </ion-item>
 
-  <ion-item lines="none" class="ion-text-wrap">
-    <ion-label>
+  <ion-item lines="none">
+    <ion-label class="ion-text-wrap">
       <p>
         <a [routerLink]="contributePath">
           {{ 'pages.account.bonus.description' | translate }}
@@ -169,7 +171,7 @@
   </ion-item>
 
   <ion-item lines="none" class="ion-text-wrap">
-    <ion-label>
+    <ion-label class="ion-text-wrap">
       <h2>{{ 'pages.account.bonus.highResImages' | translate }}</h2>
       <p *ngIf="capabilitySubscriptions['highResImages']?.enabled">
         {{ 'pages.account.bonus.enabled' | translate }}
@@ -205,7 +207,7 @@
   </ion-item>
 
   <ion-item lines="none" class="ion-text-wrap">
-    <ion-label>
+    <ion-label class="ion-text-wrap">
       <h2>{{ 'pages.account.bonus.multipleImages' | translate }}</h2>
       <p *ngIf="capabilitySubscriptions['multipleImages']?.enabled">
         {{ 'pages.account.bonus.enabled' | translate }}
@@ -244,7 +246,9 @@
 
   <ion-item lines="none">
     <ion-icon name="warning" color="danger" slot="start"></ion-icon>
-    <ion-label> {{ 'pages.account.dangerZone.title' | translate }} </ion-label>
+    <ion-label class="ion-text-wrap">
+      {{ 'pages.account.dangerZone.title' | translate }}
+    </ion-label>
   </ion-item>
 
   <ion-item lines="none">

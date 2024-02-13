@@ -65,6 +65,7 @@
             [(ngModel)]="password"
             (keyup.enter)="showLogin && auth()"
             type="password"
+            appToggleablePassword
           />
         </label>
         <br /><br />
@@ -76,6 +77,7 @@
               [(ngModel)]="confirmPassword"
               (keyup.enter)="auth()"
               type="password"
+              appToggleablePassword
             />
           </label>
           <br /><br />
@@ -95,6 +97,21 @@
         <ion-button *ngIf="!showLogin" expand="block" (click)="auth()"
           >{{ 'pages.auth.button.register' | translate }}</ion-button
         >
+      </div>
+
+      <div class="divider" *ngIf="!isSelfHost">
+        <div class="divider-segment"></div>
+        <p class="ion-text-center">{{ 'pages.auth.or' | translate }}</p>
+        <div class="divider-segment"></div>
+      </div>
+
+      <div
+        class="ion-padding-start ion-padding-end ion-padding-bottom"
+        *ngIf="!isSelfHost"
+      >
+        <sign-in-with-google
+          (signInComplete)="signInWithGoogleComplete($event)"
+        ></sign-in-with-google>
       </div>
 
       <div>

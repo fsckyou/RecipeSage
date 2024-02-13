@@ -22,7 +22,7 @@ import { joiValidator } from "../middleware/joiValidator.js";
 
 // Util
 import { wrapRequestWithErrorHandler } from "../utils/wrapRequestWithErrorHandler.js";
-import { NotFound } from "../utils/errors.js";
+import { NotFound, PreconditionFailed } from "../utils/errors.js";
 
 router.post(
   "/",
@@ -30,6 +30,9 @@ router.post(
   MiddlewareService.validateSession(["user"]),
   MiddlewareService.validateUser,
   wrapRequestWithErrorHandler(async (req, res) => {
+    if (!req.body.title || req.body.title.length === 0) {
+      throw PreconditionFailed("Shopping list title must be provided.");
+    }
     const shoppingList = await sequelize.transaction(async (transaction) => {
       const shoppingList = await ShoppingList.create(
         {
@@ -38,7 +41,7 @@ router.post(
         },
         {
           transaction,
-        }
+        },
       );
 
       if (req.body.collaborators?.length) {
@@ -61,12 +64,12 @@ router.post(
             name: res.locals.user.name,
             email: res.locals.user.email,
           },
-        }
+        },
       );
     }
 
     res.status(200).json(shoppingList);
-  })
+  }),
 );
 
 router.get(
@@ -138,7 +141,7 @@ router.get(
     });
 
     res.status(200).json(serializedShoppingLists);
-  })
+  }),
 );
 
 // Add items to a shopping list
@@ -167,7 +170,7 @@ router.post(
 
     if (!shoppingList) {
       throw NotFound(
-        "Shopping list with that ID not found or you do not have access!"
+        "Shopping list with that ID not found or you do not have access!",
       );
     }
 
@@ -179,7 +182,7 @@ router.post(
         shoppingListId: shoppingList.id,
         recipeId: item.recipeId || null,
         mealPlanItemId: item.mealPlanItemId || null,
-      }))
+      })),
     );
 
     let reference = Date.now();
@@ -197,20 +200,20 @@ router.post(
     GripService.broadcast(
       shoppingList.userId,
       "shoppingList:itemsUpdated",
-      broadcastPayload
+      broadcastPayload,
     );
     for (let i = 0; i < shoppingList.collaborators.length; i++) {
       GripService.broadcast(
         shoppingList.collaborators[i].id,
         "shoppingList:itemsUpdated",
-        broadcastPayload
+        broadcastPayload,
       );
     }
 
     res.status(200).json({
       reference,
     });
-  })
+  }),
 );
 
 // Delete shopping list from account
@@ -255,7 +258,7 @@ router.delete(
               name: res.locals.user.name,
               email: res.locals.user.email,
             },
-          }
+          },
         );
       }
     } else {
@@ -263,7 +266,7 @@ router.delete(
     }
 
     res.status(200).json({});
-  })
+  }),
 );
 
 // Delete items from a shopping list by a list of item ids
@@ -320,20 +323,20 @@ router.delete(
     GripService.broadcast(
       shoppingList.userId,
       "shoppingList:itemsUpdated",
-      deletedItemBroadcast
+      deletedItemBroadcast,
     );
     for (let i = 0; i < shoppingList.collaborators.length; i++) {
       GripService.broadcast(
         shoppingList.collaborators[i].id,
         "shoppingList:itemsUpdated",
-        deletedItemBroadcast
+        deletedItemBroadcast,
       );
     }
 
     res.status(200).json({
       reference,
     });
-  })
+  }),
 );
 
 //Get a single shopping list
@@ -408,12 +411,12 @@ router.get(
     s.items.forEach(
       (item) =>
         (item.categoryTitle = ShoppingListCategorizerService.getCategoryTitle(
-          item.title
-        ))
+          item.title,
+        )),
     );
 
     res.status(200).json(s);
-  })
+  }),
 );
 
 // Update a shopping list meta info (NOT INCLUDING ITEMS)
@@ -457,7 +460,7 @@ router.put(
         title: Joi.string().min(1),
         completed: Joi.boolean(),
       }),
-    })
+    }),
   ),
   MiddlewareService.validateSession(["user"]),
   MiddlewareService.validateUser,
@@ -493,7 +496,7 @@ router.put(
             [Op.in]: req.query.itemIds.split(","),
           },
         },
-      }
+      },
     );
 
     const reference = Date.now();
@@ -511,20 +514,20 @@ router.put(
     GripService.broadcast(
       shoppingList.userId,
       "shoppingList:itemsUpdated",
-      broadcast
+      broadcast,
     );
     for (let i = 0; i < shoppingList.collaborators.length; i++) {
       GripService.broadcast(
         shoppingList.collaborators[i].id,
         "shoppingList:itemsUpdated",
-        broadcast
+        broadcast,
       );
     }
 
     res.status(200).json({
       reference,
     });
-  })
+  }),
 );
 
 export default router;
