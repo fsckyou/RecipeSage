@@ -13,6 +13,6 @@ docker buildx build . \
   --platform linux/arm64/v8,linux/amd64 \
   -f Dockerfile \
   --build-arg VERSION=$1 \
-  -t julianpoy/recipesage-selfhost:api-latest \
-  -t julianpoy/recipesage-selfhost:api-$1
+  -t fsckyou2/recipesage-selfhost:api-latest \
+  -t fsckyou2/recipesage-selfhost:api-$1
 

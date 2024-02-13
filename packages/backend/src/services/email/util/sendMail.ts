@@ -48,8 +48,8 @@ export const sendMail = async (
         Data: subject,
       },
     },
-    Source: '"RecipeSage" <noreply@recipesage.com>',
-    ReplyToAddresses: ["julian@recipesage.com"],
+    Source: '"RecipeSage" <recipes@scimone.net>',
+    ReplyToAddresses: ["recipes@scimone.net"],
   };
 
   await ses.send(
