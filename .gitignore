@@ -50,3 +50,5 @@ kube/secrets.yml
 .angular
 
 .nx/cache
+.devcontainer/Dockerfile
+.devcontainer/devcontainer.json
